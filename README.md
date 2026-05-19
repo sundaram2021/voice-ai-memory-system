@@ -1,36 +1,94 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Voice Memory AI Dashboard
 
-## Getting Started
+An interactive, premium single-screen voice console that transforms spoken conversations into structured memory nodes. Powered by **Deepgram STT**, **Anthropic Claude**, and the **Supermemory Memory Graph** ecosystem.
 
-First, run the development server:
+[![Voice Memory AI Demo Video](https://img.shields.io/badge/Demo_Video-Play_Demo-violet?style=for-the-badge&logo=youtube)](YOUR_DEMO_VIDEO_URL_HERE)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## 🌟 Key Features
+
+* **Voice-to-Text Transcription (Deepgram STT)**
+  * Capture user vocal inputs straight from the browser microphone.
+  * Sub-second transcription latency using Deepgram's Nova-2 model.
+  * Real-time microphone audio amplitude/volume tracking with animated canvas ripple feedback.
+
+* **Conversational Voice AI (Anthropic Claude)**
+  * Context-aware conversational partner designed to yield short, friendly, spoken-natural responses (1–3 sentences).
+  * Automatically reads assistant answers aloud using native browser Speech Synthesis.
+  * **Resilient Model Fallback Pipeline**: Automatically negotiates API tier limits by checking and cascading requests across:
+    1. `claude-sonnet-4-6`
+    2. `claude-haiku-4-5-20251001`
+    3. `claude-sonnet-4-20250514`
+
+* **Real-time Memory Graph Engine (Supermemory API)**
+  * Generates conversation snippet records and pushes them into your Supermemory workspace.
+  * **Optimistic Graph Updates**: Generates and links document-to-memory nodes on the Canvas *instantly* when the assistant replies, eliminating network sync delay.
+  * Fully interactive 2D Canvas graph allows dragging, zooming, panning, and hovering to highlight relationships (`derives`, `extends`, `updates`).
+
+* **Premium Single-Screen Interface**
+  * Sleek dark-mode glassmorphic dashboard designed to fit exactly on a single desktop viewport.
+  * Flexible side columns scroll conversations internally, keeping workspace inputs and the core canvas static and accessible.
+  * Fully responsive fallback layout for mobile devices.
+
+---
+
+## 🛠️ Architecture Workflow
+
+```mermaid
+graph TD
+    A[User Speech] -->|Mic Capture| B[WebAudio API Analyser]
+    B -->|Audio WebM Chunks| C[Deepgram API Route]
+    C -->|Text Transcript| D[Anthropic Claude Route]
+    D -->|Text Response| E[Browser Speech Synthesis]
+    D -->|Async Document Ingestion| F[Supermemory Spaces API]
+    D -->|Optimistic Update| G[MemoryGraph Component]
+    F -->|Polled/Refetched Graph Nodes| G
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## ⚙️ Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create a `.env.local` file in the root directory:
 
-## Learn More
+```env
+# Supermemory Workspace Authentication API Key
+SUPERMEMORY_API_KEY=your_supermemory_key
 
-To learn more about Next.js, take a look at the following resources:
+# Deepgram Speech-To-Text API Key
+DEEPGRAM_KEY=your_deepgram_key
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Anthropic Claude LLM API Key
+ANTHROPIC_KEY=your_anthropic_key
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## 🚀 Getting Started
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 1. Install Dependencies
+```bash
+pnpm install
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 2. Run Development Server
+```bash
+pnpm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) to launch the workspace console.
+
+### 3. Production Build
+```bash
+pnpm run build
+```
+
+---
+
+## 🎥 Demo Video Link
+To attach your demo video, replace `YOUR_DEMO_VIDEO_URL_HERE` in the top badge with your YouTube/Loom link or embed it directly:
+
+```markdown
+![Watch the Demo](path/to/local/demo.gif or youtube_embed)
+```
