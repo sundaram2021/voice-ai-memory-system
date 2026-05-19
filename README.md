@@ -1,10 +1,11 @@
-# Voice Memory AI Dashboard
+## Demo
+
+https://github.com/user-attachments/assets/63f8c8bf-48d1-405f-b183-f05641e3387d
+
+## Voice Memory AI Dashboard
 
 An interactive, premium single-screen voice console that transforms spoken conversations into structured memory nodes. Powered by **Deepgram STT**, **Anthropic Claude**, and the **Supermemory Memory Graph** ecosystem.
 
-[![Voice Memory AI Demo Video](https://img.shields.io/badge/Demo_Video-Play_Demo-violet?style=for-the-badge&logo=youtube)](YOUR_DEMO_VIDEO_URL_HERE)
-
----
 
 ## 🌟 Key Features
 
@@ -31,7 +32,6 @@ An interactive, premium single-screen voice console that transforms spoken conve
   * Flexible side columns scroll conversations internally, keeping workspace inputs and the core canvas static and accessible.
   * Fully responsive fallback layout for mobile devices.
 
----
 
 ## 🛠️ Architecture Workflow
 
@@ -46,7 +46,6 @@ graph TD
     F -->|Polled/Refetched Graph Nodes| G
 ```
 
----
 
 ## ⚙️ Environment Variables
 
@@ -63,7 +62,6 @@ DEEPGRAM_KEY=your_deepgram_key
 ANTHROPIC_KEY=your_anthropic_key
 ```
 
----
 
 ## 🚀 Getting Started
 
@@ -84,11 +82,3 @@ Open [http://localhost:3000](http://localhost:3000) to launch the workspace cons
 pnpm run build
 ```
 
----
-
-## 🎥 Demo Video Link
-To attach your demo video, replace `YOUR_DEMO_VIDEO_URL_HERE` in the top badge with your YouTube/Loom link or embed it directly:
-
-```markdown
-![Watch the Demo](path/to/local/demo.gif or youtube_embed)
-```
