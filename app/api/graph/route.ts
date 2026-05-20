@@ -12,8 +12,8 @@ const MOCK_DOCUMENTS = [
     memories: [
       {
         id: 'mem-seed-1a',
-        memory: 'System activated voice-to-graph pipeline and set up Deepgram STT transcription.',
-        content: 'System activated voice-to-graph pipeline and set up Deepgram STT transcription.',
+        memory: 'System activated voice-to-graph pipeline and set up Web Speech STT transcription.',
+        content: 'System activated voice-to-graph pipeline and set up Web Speech STT transcription.',
         isStatic: false,
         spaceId: 'voice-chat',
         isLatest: true,

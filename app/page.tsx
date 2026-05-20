@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { useVoiceRecorder } from '@/hooks/use-voice-recorder';
 import { useSpeechSynthesis } from '@/hooks/use-speech-synthesis';
 import { useGraphSync } from '@/hooks/use-graph-sync';
+import { useLiveSpeech } from '@/hooks/use-live-speech';
 import { VoiceAvatar } from '@/components/voice-avatar';
 import { TranscriptFeed } from '@/components/transcript-feed';
-import { ControlPanel } from '@/components/control-panel';
 
 // Load MemoryGraph dynamically to prevent SSR errors (since it uses Canvas APIs)
 const MemoryGraph = dynamic(
@@ -21,47 +20,64 @@ interface ChatMessage {
 }
 
 export default function GraphPage() {
-  const [containerTag, setContainerTag] = useState<string>('voice-chat');
-  const [selectedVoice, setSelectedVoice] = useState<string>('');
+  const containerTag = 'voice-chat';
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isProcessingChat, setIsProcessingChat] = useState<boolean>(false);
 
   // Sync graph state and optimistic nodes
-  const { documents, isLoading: isGraphLoading, refetch, addOptimisticNode } = useGraphSync(containerTag);
+  const {
+    documents,
+    isLoading: isGraphLoading,
+    refetch,
+    addOptimisticUserNode,
+    updateOptimisticAiNode,
+  } = useGraphSync(containerTag);
 
   // Browser Text-To-Speech hook
-  const { speak, stop: stopSpeaking, isSpeaking, voices } = useSpeechSynthesis();
+  const { speakSentence, stop: stopSpeaking, isSpeaking } = useSpeechSynthesis();
 
-  // Speech-To-Text hook
+  // Continuous Live Speech-To-Text hook
   const {
-    status: recorderStatus,
-    volume,
-    error: recorderError,
-    startRecording,
-    stopRecording,
-    reset: resetRecorder,
-  } = useVoiceRecorder({
-    onTranscriptReady: handleUserSpeech,
-    onError: (err) => console.error('Voice Recorder Error:', err),
+    status: liveSpeechStatus,
+    interimTranscript,
+    error: liveSpeechError,
+    startListening,
+    stopListening,
+    pauseListening,
+    resumeListening,
+  } = useLiveSpeech({
+    onSpeechEnd: handleLiveUserSpeech,
+    onError: (err) => console.error('Live Speech Error:', err),
+    silenceTimeoutMs: 1200,
   });
 
-  // Handle when voice transcription is successfully returned from Deepgram
-  async function handleUserSpeech(transcript: string) {
+  // Manage automatic microphone pausing/resuming based on assistant speaking status
+  useEffect(() => {
+    if (isSpeaking) {
+      pauseListening();
+    } else if (liveSpeechStatus === 'paused') {
+      resumeListening();
+    }
+  }, [isSpeaking, liveSpeechStatus, pauseListening, resumeListening]);
+
+  // Handle when live voice is completed (Hands-Free Live Mode)
+  async function handleLiveUserSpeech(transcript: string) {
     if (!transcript.trim()) return;
 
-    // Stop assistant from speaking if they were in the middle of a response
+    // Stop assistant from speaking immediately (barge-in interruption)
     stopSpeaking();
 
     // Append user message to logs
     const userMsg: ChatMessage = { role: 'user', content: transcript };
-    const updatedMessages = [...messages, userMsg];
-    setMessages(updatedMessages);
+    setMessages((prev) => [...prev, userMsg]);
+
+    // Optimistically draw a user node immediately
+    const docId = addOptimisticUserNode(transcript);
 
     setIsProcessingChat(true);
 
     try {
-      // Send chat history and current prompt to backend agent
-      const response = await fetch('/api/chat', {
+      const response = await fetch('/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -72,22 +88,82 @@ export default function GraphPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to get response from AI agent');
+        throw new Error('Failed to get streaming response from AI');
       }
 
-      const data = await response.json();
-      const aiReply = data.reply;
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No stream reader available');
 
-      // Add assistant response to transcripts
-      setMessages((prev) => [...prev, { role: 'assistant', content: aiReply }]);
+      const decoder = new TextDecoder();
+      let accumulatedText = '';
+      let sentenceBuffer = '';
 
-      // Optimistically draw a new document node and memory node connection on the canvas graph
-      addOptimisticNode(transcript, aiReply);
+      // Append empty assistant message for streaming display
+      setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
 
-      // Play vocal response through the browser TTS
-      speak(aiReply, selectedVoice);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data:')) continue;
+
+          const dataStr = trimmed.slice(5).trim();
+          if (dataStr === '[DONE]') continue;
+
+          try {
+            const dataObj = JSON.parse(dataStr);
+            if (dataObj.type === 'content_block_delta' && dataObj.delta?.text) {
+              const newText = dataObj.delta.text;
+              accumulatedText += newText;
+              sentenceBuffer += newText;
+
+              // Update logs in real-time
+              setMessages((prev) => {
+                const next = [...prev];
+                if (next.length > 0) {
+                  next[next.length - 1] = {
+                    role: 'assistant',
+                    content: accumulatedText,
+                  };
+                }
+                return next;
+              });
+
+              // Update memory graph canvas in real-time
+              updateOptimisticAiNode(docId, accumulatedText);
+
+              // Process sentence boundaries for TTS queuing
+              const matches = sentenceBuffer.match(/[^.!?]+[.!?]/g);
+              if (matches) {
+                for (const match of matches) {
+                  speakSentence(match.trim());
+                  sentenceBuffer = sentenceBuffer.replace(match, '');
+                }
+              }
+            }
+          } catch (e) {
+            // Ignore parse errors on SSE delimiters
+          }
+        }
+      }
+
+      // Speak remaining text in sentence buffer
+      if (sentenceBuffer.trim()) {
+        speakSentence(sentenceBuffer.trim());
+      }
+
+      // Schedule background graph sync in 6 seconds to fetch permanent nodes
+      setTimeout(() => {
+        refetch();
+      }, 6000);
+
     } catch (error) {
-      console.error('Error in chat exchange:', error);
+      console.error('Error in live chat stream:', error);
       setMessages((prev) => [
         ...prev,
         { role: 'assistant', content: 'Sorry, I encountered an error communicating with my neural processors. Please try speaking again.' },
@@ -97,20 +173,19 @@ export default function GraphPage() {
     }
   }
 
-  // Toggle voice capture state
+  // Toggle voice capture state when clicking the glowing mic orb
   function handleMicToggle() {
-    if (recorderStatus === 'recording') {
-      stopRecording();
+    stopSpeaking();
+
+    if (liveSpeechStatus === 'listening' || liveSpeechStatus === 'paused') {
+      stopListening();
     } else {
-      stopSpeaking();
-      startRecording();
+      startListening();
     }
   }
 
-  // Trigger manual sync of the graph nodes
-  function handleManualSync() {
-    refetch();
-  }
+  // Map system status
+  const currentStatus = isProcessingChat ? 'processing' : liveSpeechStatus;
 
   return (
     <div className="flex flex-col min-h-screen lg:h-screen bg-black text-zinc-100 font-sans antialiased lg:overflow-hidden">
@@ -130,14 +205,14 @@ export default function GraphPage() {
             <h1 className="text-sm font-bold tracking-tight bg-gradient-to-r from-violet-200 to-indigo-200 bg-clip-text text-transparent">
               Voice Memory AI
             </h1>
-            <p className="text-[9px] text-zinc-500 font-medium">Supermemory Graph Integration</p>
+            <p className="text-[9px] text-zinc-500 font-medium">Hands-free Live Talking Mode</p>
           </div>
         </div>
 
         {/* Connection status tag */}
         <div className="flex items-center gap-2 px-3 py-1 bg-zinc-900/80 border border-zinc-800 rounded-full text-[10px] text-zinc-400">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          Space: <span className="text-violet-400 font-semibold">{containerTag}</span>
+          <span className={`h-1.5 w-1.5 rounded-full ${liveSpeechStatus === 'listening' ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-650'}`} />
+          Status: <span className="text-violet-400 font-semibold uppercase">{liveSpeechStatus}</span>
         </div>
       </header>
 
@@ -147,33 +222,22 @@ export default function GraphPage() {
         {/* Left Side: Voice Assistant Controls & Logs */}
         <section className="lg:col-span-4 flex flex-col gap-4 lg:h-full lg:min-h-0 lg:overflow-hidden">
           <VoiceAvatar
-            status={isProcessingChat ? 'transcribing' : recorderStatus}
-            volume={volume}
+            status={currentStatus}
             isSpeaking={isSpeaking}
             onMicClick={handleMicToggle}
           />
 
-          <ControlPanel
-            containerTag={containerTag}
-            onContainerTagChange={setContainerTag}
-            selectedVoice={selectedVoice}
-            onVoiceChange={setSelectedVoice}
-            voices={voices}
-            onSyncClick={handleManualSync}
-            documentsCount={documents.length}
-            isLoading={isGraphLoading}
-          />
-
           <TranscriptFeed
             messages={messages}
-            status={recorderStatus}
+            status={currentStatus}
             isSpeaking={isSpeaking}
+            interimTranscript={liveSpeechStatus === 'listening' ? interimTranscript : ''}
           />
 
-          {recorderError && (
+          {liveSpeechError && (
             <div className="p-3 bg-rose-950/20 border border-rose-900/30 rounded-2xl text-[10px] text-rose-400 leading-relaxed shrink-0">
-              <span className="font-semibold block mb-0.5">Recording Note:</span>
-              {recorderError}
+              <span className="font-semibold block mb-0.5">Voice Service Note:</span>
+              {liveSpeechError}
             </div>
           )}
         </section>

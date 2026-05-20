@@ -5,46 +5,46 @@
 
 ## Memory System for Voice AI
 
-An interactive, premium single-screen voice console that transforms spoken conversations into structured memory nodes. Powered by **Deepgram STT**, **Anthropic Claude**, and the **Supermemory Memory Graph** ecosystem.
+An interactive, premium voice console that enables hands-free continuous talking, paired with real-time memory graph construction. Powered by **WebSpeech Recognition (VAD)**, **Anthropic Claude**, and the **Supermemory Memory Graph** ecosystem.
 
 
 ## 🌟 Key Features
 
-* **Voice-to-Text Transcription (Deepgram STT)**
-  * Capture user vocal inputs straight from the browser microphone.
-  * Sub-second transcription latency using Deepgram's Nova-2 model.
-  * Real-time microphone audio amplitude/volume tracking with animated canvas ripple feedback.
+* **Hands-Free Continuous Speech-To-Text (WebSpeech API)**
+  - Auto-listening loop using browser-native speech recognition.
+  - Custom silence-detection VAD threshold (1200ms) to automatically finalize user queries hands-free.
+  - Robust auto-cooldown (2s) and connection-recovery system to bypass and heal transient network drops.
 
-* **Conversational Voice AI (Anthropic Claude)**
-  * Context-aware conversational partner designed to yield short, friendly, spoken-natural responses (1–3 sentences).
-  * Automatically reads assistant answers aloud using native browser Speech Synthesis.
-  * **Resilient Model Fallback Pipeline**: Automatically negotiates API tier limits by checking and cascading requests across:
-    1. `claude-sonnet-4-6`
-    2. `claude-haiku-4-5-20251001`
-    3. `claude-sonnet-4-20250514`
+* **Queued Sentence-by-Sentence Text-To-Speech (TTS)**
+  - Progressive speech generation: sentences are read aloud as soon as they complete streaming.
+  - Queue-flushing barge-in support: user speaking instantly cancels previous AI speech synthesis.
 
-* **Real-time Memory Graph Engine (Supermemory API)**
-  * Generates conversation snippet records and pushes them into your Supermemory workspace.
-  * **Optimistic Graph Updates**: Generates and links document-to-memory nodes on the Canvas *instantly* when the assistant replies, eliminating network sync delay.
-  * Fully interactive 2D Canvas graph allows dragging, zooming, panning, and hovering to highlight relationships (`derives`, `extends`, `updates`).
+* **Cross-Session Memory Persistence (Supermemory API)**
+  - Automatically indexes dialogue logs into the Supermemory workspace.
+  - Queries recent conversation history context from Supermemory and feeds it to the system prompt, giving the AI cross-session recall of past topics, user name (Sundaram), and summaries.
 
-* **Premium Single-Screen Interface**
-  * Sleek dark-mode glassmorphic dashboard designed to fit exactly on a single desktop viewport.
-  * Flexible side columns scroll conversations internally, keeping workspace inputs and the core canvas static and accessible.
-  * Fully responsive fallback layout for mobile devices.
+* **Real-time Memory Graph Engine**
+  - **Optimistic Graph Updates**: Instantly renders document-to-memory nodes on the Canvas as the assistant streams responses, bypassing database ingestion latency.
+  - Fully interactive 2D Canvas graph allows dragging, zooming, panning, and hovering to highlight relationships.
+
+* **Premium Minimalist UI**
+  - Left panel: voice-activity status indicator orb and live conversation transcript feed.
+  - Right panel: full-screen interactive memory graph.
 
 
 ## 🛠️ Architecture Workflow
 
 ```mermaid
 graph TD
-    A[User Speech] -->|Mic Capture| B[WebAudio API Analyser]
-    B -->|Audio WebM Chunks| C[Deepgram API Route]
-    C -->|Text Transcript| D[Anthropic Claude Route]
-    D -->|Text Response| E[Browser Speech Synthesis]
-    D -->|Async Document Ingestion| F[Supermemory Spaces API]
-    D -->|Optimistic Update| G[MemoryGraph Component]
-    F -->|Polled/Refetched Graph Nodes| G
+    A[User Speech] -->|Continuous Capture| B[Web SpeechRecognition API]
+    B -->|Silence VAD Timeout| C[Live User Speech Finalized]
+    C -->|Optimistic User Node| D[Memory Graph Canvas]
+    C -->|Query history + message| E[/api/chat/stream]
+    E -->|Retrieve Context| F[Supermemory Documents API]
+    F -->| chronological snippets| G[LLM System Prompt]
+    E -->|Stream SSE Deltas| H[Sentence Buffer Queue]
+    H -->|Progressive playback| I[Browser Speech Synthesis]
+    E -->|After Response Ingestion| F
 ```
 
 
@@ -53,13 +53,10 @@ graph TD
 Create a `.env.local` file in the root directory:
 
 ```env
-# Supermemory Workspace Authentication API Key
+# Supermemory Workspace Authentication API Key (get at https://supermemory.ai)
 SUPERMEMORY_API_KEY=your_supermemory_key
 
-# Deepgram Speech-To-Text API Key
-DEEPGRAM_KEY=your_deepgram_key
-
-# Anthropic Claude LLM API Key
+# Anthropic Claude LLM API Key (get at https://console.anthropic.com)
 ANTHROPIC_KEY=your_anthropic_key
 ```
 
@@ -82,4 +79,3 @@ Open [http://localhost:3000](http://localhost:3000) to launch the workspace cons
 ```bash
 pnpm run build
 ```
-

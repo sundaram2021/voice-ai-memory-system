@@ -32,7 +32,62 @@ export function useGraphSync(containerTag: string = 'voice-chat') {
     fetchGraph();
   }, [fetchGraph]);
 
-  // Function to optimistically inject a node into the graph state for zero-latency updates
+  // Function to optimistically inject a user node immediately when user stops speaking
+  const addOptimisticUserNode = useCallback((userMessage: string) => {
+    const docId = `opt-doc-${Date.now()}`;
+    const newDocument: GraphApiDocument = {
+      id: docId,
+      title: userMessage.length > 25 ? `${userMessage.substring(0, 22)}...` : userMessage,
+      summary: `User spoken message: "${userMessage}"`,
+      documentType: 'text',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      memories: [],
+    };
+
+    setDocuments((prev) => {
+      const filtered = prev.filter((doc) => !doc.id.startsWith('opt-doc-') || (Date.now() - parseInt(doc.id.replace('opt-doc-', '')) < 60000));
+      return [newDocument, ...filtered];
+    });
+
+    return docId;
+  }, []);
+
+  // Function to update the optimistic user node with assistant's live memory response
+  const updateOptimisticAiNode = useCallback((docId: string, aiResponse: string) => {
+    const memId = `opt-mem-${docId}`;
+
+    setDocuments((prev) =>
+      prev.map((doc) => {
+        if (doc.id !== docId) return doc;
+
+        const newMemory = {
+          id: memId,
+          memory: aiResponse,
+          content: aiResponse,
+          isStatic: false,
+          spaceId: containerTag,
+          isLatest: true,
+          isForgotten: false,
+          forgetAfter: null,
+          forgetReason: null,
+          version: 1,
+          parentMemoryId: null,
+          rootMemoryId: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          relation: 'derives' as const,
+        };
+
+        return {
+          ...doc,
+          memories: [newMemory],
+        };
+      })
+    );
+  }, [containerTag]);
+
+  // Keep existing method for backwards compatibility
   const addOptimisticNode = useCallback((userMessage: string, aiResponse: string) => {
     const docId = `opt-doc-${Date.now()}`;
     const memId = `opt-mem-${Date.now()}`;
@@ -66,12 +121,10 @@ export function useGraphSync(containerTag: string = 'voice-chat') {
     };
 
     setDocuments((prev) => {
-      // Remove any temporary optimistic nodes that might have matched (unlikely with timestamps)
       const filtered = prev.filter((doc) => !doc.id.startsWith('opt-doc-') || (Date.now() - parseInt(doc.id.replace('opt-doc-', '')) < 60000));
       return [newDocument, ...filtered];
     });
 
-    // Automatically trigger a server poll in the background after 6 seconds to fetch the actual processed nodes
     setTimeout(() => {
       fetchGraph();
     }, 6000);
@@ -83,5 +136,8 @@ export function useGraphSync(containerTag: string = 'voice-chat') {
     error,
     refetch: fetchGraph,
     addOptimisticNode,
+    addOptimisticUserNode,
+    updateOptimisticAiNode,
   };
 }
+
