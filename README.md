@@ -39,7 +39,7 @@ graph TD
     A[User Speech] -->|Continuous Capture| B[Web SpeechRecognition API]
     B -->|Silence VAD Timeout| C[Live User Speech Finalized]
     C -->|Optimistic User Node| D[Memory Graph Canvas]
-    C -->|Query history + message| E[/api/chat/stream]
+    C -->|Query history + message| E["/api/chat/stream"]
     E -->|Retrieve Context| F[Supermemory Documents API]
     F -->| chronological snippets| G[LLM System Prompt]
     E -->|Stream SSE Deltas| H[Sentence Buffer Queue]
