@@ -1,8 +1,9 @@
 ## Demo
 
-https://github.com/user-attachments/assets/63f8c8bf-48d1-405f-b183-f05641e3387d
+<img width="1671" height="732" alt="image" src="https://github.com/user-attachments/assets/2c46b95d-3864-4a1b-bf50-db9739784505" />
 
-## Voice Memory AI Dashboard
+
+## Memory System for Voice AI
 
 An interactive, premium single-screen voice console that transforms spoken conversations into structured memory nodes. Powered by **Deepgram STT**, **Anthropic Claude**, and the **Supermemory Memory Graph** ecosystem.
 
